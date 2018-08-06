@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2000
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "trustlessVariables", "trustlessVariables\trustlessVariables.njsproj", "{E1FD33FD-FA5E-4BC2-8C91-761B9F67C5CC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E1FD33FD-FA5E-4BC2-8C91-761B9F67C5CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1FD33FD-FA5E-4BC2-8C91-761B9F67C5CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1FD33FD-FA5E-4BC2-8C91-761B9F67C5CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1FD33FD-FA5E-4BC2-8C91-761B9F67C5CC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {062495BD-8E32-44A4-9EBF-9EEE77CB136E}
+	EndGlobalSection
+EndGlobal

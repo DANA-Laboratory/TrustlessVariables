@@ -1,0 +1,12 @@
+{
+  "name": "crypto-test",
+  "version": "0.0.0",
+  "description": "cryptoTest",
+  "main": "app.js",
+  "author": {
+    "name": "Afzalan"
+  },
+  "dependencies": {
+    "node-rsa": "^1.0.1"
+  }
+}
