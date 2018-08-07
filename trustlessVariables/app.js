@@ -7,10 +7,9 @@ const crypto = require('crypto');
 const either = require('./functional.js');
 
 const parameters = {};//latest state for all parameters
-const addresses = {};
-const trx = [];
-const hashs = [];
-
+const addresses = {};//database of addresses with related parameters and their history of changes
+const trx = [];//all transactions
+const hashs = [];//trx hashes cumulative
 
 const verifysignitureaddress = (message, sig, address) => {
     let rsaNode = new NodeRSA(address, 'pkcs8-public-pem');
@@ -27,19 +26,25 @@ const verifysigniture = (message, sig, address) => {
 };
 const createnewaddress = () => {
     let key = new NodeRSA({ b: 512 });
-    addresses[key.exportKey('pkcs8-public-pem')] = {};
+    addresses[key.exportKey('pkcs8-public-pem')] = {b: 0.0};
     return key.exportKey('pkcs8-private-pem');
 };
 const addparameter = (address, parameter) => {
     if (address in addresses) {
-        addresses[address][parameter] = {values: []};
+        addresses[address][parameter] = {};
+        parameters[parameter] = {};
         return true;
     } else
         return false;
 };
-const updateparametervalue = (address, parameter, value) => {
-    parameters[parameter] = value;
-    return (addresses[address][parameter]['values']).push(value);
+const updateparametervalue = (address, parameter, att, value) => {
+    parameters[parameter][att] = value.v;
+    if (att in addresses[address][parameter] ) {
+      (addresses[address][parameter][att]).push(value);
+    } else {
+      addresses[address][parameter][att]=[value];
+    }
+    return true;
 };
 const gethash = (str) => {
     let hash = crypto.createHash('sha256');
@@ -74,7 +79,7 @@ const private_api = (message, sig, address) => {
         var messageObj = JSON.parse(message);
         switch (messageObj.command) {
             case "update_parameter_value":
-                return updateparametervalue(address, messageObj.parameter, messageObj.value);
+                return updateparametervalue(address, messageObj.parameter, messageObj.attribute, messageObj.value);
                 break;
 
         }
@@ -92,7 +97,7 @@ assert.equal(verifysigniture('message',), false);
 assert.equal(verifysigniture('message', 'sign'), false);
 
 const rsaNode = new NodeRSA(privateKey, 'pkcs8-private-pem');
-var message = '{value: {v:3.49873, att:""}}';
+var message = '{value: {v:3.49873, time:123456}}';
 assert.equal(rsaNode.verify(message, rsaNode.sign(message, 'base64', 'utf8'), 'utf8', 'base64'), true);
 assert.equal(verifysigniture(message, rsaNode.sign(message, 'base64', 'utf8')), true);
 assert.equal(verifysigniture(message, rsaNode.sign(message, 'base64', 'utf8'), MasterKeyAddress), true);
@@ -100,12 +105,12 @@ let pk = createnewaddress();
 const testNode = new NodeRSA(pk, 'pkcs8-private-pem');
 assert(testNode.isPrivate());
 assert(testNode.isPublic());
-assert(!testNode.isPublic(true)); 
+assert(!testNode.isPublic(true));
 var _add = {};
-_add[testNode.exportKey('pkcs8-public-pem')] = {};
+_add[testNode.exportKey('pkcs8-public-pem')] = {b : 0.0};
 assert.equal(JSON.stringify(addresses), JSON.stringify(_add));
 assert.equal(addparameter(testNode.exportKey('pkcs8-public-pem'), 'dblVar'), true);
-_add[testNode.exportKey('pkcs8-public-pem')]['dblVar'] = {values : []};
+_add[testNode.exportKey('pkcs8-public-pem')]['dblVar'] = {};
 assert.equal(JSON.stringify(addresses), JSON.stringify(_add));
 assert.equal(addparameter('new address', 'dblVar'), false);
 
@@ -119,6 +124,6 @@ assert(testNode2.isPrivate());
 let publickey = testNode2.exportKey('pkcs8-public-pem');
 message = JSON.stringify({ command: 'add_parameter', address: publickey, parameter: 'density' });
 assert(admin_api(message, rsaNode.sign(message, 'base64', 'utf8')));
-message = JSON.stringify({ command: 'update_parameter_value', address: publickey, parameter: 'density', value: {v: 134.87, att:''} });
+message = JSON.stringify({ command: 'update_parameter_value', address: publickey, parameter: 'density', attribute: '3M', value: {v: 134.87, t:12345} });
 assert(private_api(message, testNode2.sign(message, 'base64', 'utf8'), testNode2.exportKey('pkcs8-public-pem')));
 return 0;
