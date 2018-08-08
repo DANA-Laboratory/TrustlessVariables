@@ -126,4 +126,12 @@ message = JSON.stringify({ command: 'add_parameter', address: publickey, paramet
 assert(admin_api(message, rsaNode.sign(message, 'base64', 'utf8')));
 message = JSON.stringify({ command: 'update_parameter_value', address: publickey, parameter: 'density', attribute: '3M', value: {v: 134.87, t:12345} });
 assert(private_api(message, testNode2.sign(message, 'base64', 'utf8'), testNode2.exportKey('pkcs8-public-pem')));
+
+//
+let i = {a:2, b:3};
+var fun = require('./relatedvalues.js')
+console.log(fun(i).c.toString());
+console.log(fun(i).c(i));
+const fs = require('fs');
+fs.writeFileSync("./relatedvalues.js", "module.exports=(_$p) => { return { c:" + fun(i).c.toString() + ",};}");
 return 0;
