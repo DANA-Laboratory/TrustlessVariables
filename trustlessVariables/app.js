@@ -4,8 +4,10 @@ const NodeRSA = require('node-rsa');
 const MasterNode = new NodeRSA(MasterKeyAddress, 'pkcs8-public-pem');
 const assert = require('assert');
 const crypto = require('crypto');
+const fs = require('fs');
 const either = require('./functional.js');
-
+const relatedpathvariables = './relatedvalues.js';
+var relatedvariables = require(relatedpathvariables);
 const parameters = {};//latest state for all parameters
 const addresses = {};//database of addresses with related parameters and their history of changes
 const trx = [];//all transactions
@@ -46,6 +48,21 @@ const updateparametervalue = (address, parameter, att, value) => {
     }
     return true;
 };
+const updaterequirerelated = (pathto, keytoaddupdate, functionstr) => {
+    var relatedvalues = require(pathto)();
+    keytoaddupdate = keytoaddupdate.trim();
+    var str = "module.exports=(_$p) => { return { \n\t";
+    for (var k in relatedvalues) {
+      if(relatedvalues.hasOwnProperty(k) && k !== keytoaddupdate)
+        str += k + ":" + relatedvalues[k].toString() + ",\n\t";
+    }
+    str += keytoaddupdate + ":() => { with(_$p) { return (" + functionstr + ")}},\n";
+    str += "};}";
+    fs.writeFileSync(pathto, str);
+    delete require.cache[require.resolve(pathto)];
+    relatedvariables = require(pathto);
+    return true;
+};
 const gethash = (str) => {
     let hash = crypto.createHash('sha256');
     hash.update(str);
@@ -54,22 +71,29 @@ const gethash = (str) => {
 const addtrx = (tr) => {
     trx.push(tr);
     hashs.push(gethash(hashs.pop + gethash(tr)));
+    return true;
 };
 const admin_api = (message, sig) => {
     if (verifysigniture(message, sig)) {
-        addtrx(JSON.stringify({ m: message, s: sig }));
-        var messageObj = JSON.parse(message);
-        switch (messageObj.command) {
-            case "add_parameter":
-                return addparameter(messageObj.address, messageObj.parameter)
-                break;
-            case "add_address":
-                let newadd = createnewaddress();
-                let encnewadd = MasterNode.encrypt(newadd, 'base64');
-                return encnewadd;
-                break;
-
-        }
+        if (addtrx(JSON.stringify({ m: message, s: sig })))
+        {
+          var messageObj = JSON.parse(message);
+          switch (messageObj.command) {
+              case "add_parameter":
+                  return addparameter(messageObj.address, messageObj.parameter)
+                  break;
+              case "add_address":
+                  let newadd = createnewaddress();
+                  let encnewadd = MasterNode.encrypt(newadd, 'base64');
+                  return encnewadd;
+                  break;
+              case "update_require_related":
+                  return updaterequirerelated(relatedpathvariables, messageObj.variablekey, messageObj.functionstr);
+                  break;
+              case "change_address":
+                  break;
+          }
+        };
     } else
         return false;
 };
@@ -81,12 +105,15 @@ const private_api = (message, sig, address) => {
             case "update_parameter_value":
                 return updateparametervalue(address, messageObj.parameter, messageObj.attribute, messageObj.value);
                 break;
+            case "send":
+                break;
 
         }
     } else
         return false;
 
 };
+
 module.exports.admin_api = admin_api;
 module.exports.private_api = private_api;
 
@@ -128,10 +155,10 @@ message = JSON.stringify({ command: 'update_parameter_value', address: publickey
 assert(private_api(message, testNode2.sign(message, 'base64', 'utf8'), testNode2.exportKey('pkcs8-public-pem')));
 
 //
-let i = {a:2, b:3};
-var fun = require('./relatedvalues.js')
-console.log(fun(i).c.toString());
-console.log(fun(i).c(i));
-const fs = require('fs');
-fs.writeFileSync("./relatedvalues.js", "module.exports=(_$p) => { return { c:" + fun(i).c.toString() + ",};}");
+
+let domain = {a:2, b:3};
+var relatedvalues = require(relatedpathvariables);
+var relatedvalues = updaterequirerelated(relatedpathvariables, 'd', 'a*b+b^2');
+message = JSON.stringify({ command: 'update_require_related', variablekey: 'd', functionstr: 'a+b+c*a*b'});
+console.log(admin_api(message, rsaNode.sign(message, 'base64', 'utf8')));
 return 0;
