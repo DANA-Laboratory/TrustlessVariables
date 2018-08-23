@@ -5,7 +5,7 @@ const assert = require('assert');
 const crypto = require('crypto');
 const fs = require('fs');
 
-//***   RSA (Rivest–Shamir–Adleman) https://en.wikipedia.org/wiki/RSA_(cryptosystem)
+//***   RSA (Rivestï¿½Shamirï¿½Adleman) https://en.wikipedia.org/wiki/RSA_(cryptosystem)
 //      https://www.npmjs.com/package/node-rsa
 const NodeRSA = require('node-rsa');
 //      Create a RSA note to validate admin signiture
@@ -29,7 +29,7 @@ const hashs = [];       // TRX hashes cumulative
 const pemtokey = (pem) => { return pem.replace(/(\r\n\t|\n|\r\t)/gm, "").slice(26, -24) };
 parameters[pemtokey(MasterKeyAddress)] = 100e6; // Initial balance for admin
 
-//***   Verify a signiture 
+//***   Verify a signiture
 //      Utility
 const verifysigniturebase = (message/*utf8*/, sig /*'utf8'*/, address /*pkcs8-public-pem*/) => {
     let rsaNode = new NodeRSA(address, 'pkcs8-public-pem');
@@ -37,7 +37,7 @@ const verifysigniturebase = (message/*utf8*/, sig /*'utf8'*/, address /*pkcs8-pu
     return res;
 };
 
-//***   Verify a signiture empty address should be signed by admin   
+//***   Verify a signiture empty address should be signed by admin
 //      Utility
 const verifysigniture = (message, sig, address) => {
     if (address)
@@ -95,7 +95,7 @@ const updaterequirerelated = (pathto /*Path to module for related variables*/, k
     return true;
 };
 
-//***   Add new parameter to an address in case of new address it adds new one to addresses[] no balance 
+//***   Add new parameter to an address in case of new address it adds new one to addresses[] no balance
 //      Admin API
 const addparameter = (address, parameter) => {
     if (!(addresses.hasOwnProperty(address))) {
@@ -148,9 +148,10 @@ const admin_api = (message, sig) => {
     if (verifysigniture(message, sig)) {
         var messageObj = JSON.parse(message);
         var res = false;
-        switch (messageObj.command) {
+        switch (messageObj.c) {
             case "add_parameter":
-                res = addparameter(messageObj.ad, messageObj.p)
+                if(messageObj.p[0] !== '$')
+                  res = addparameter(messageObj.ad, messageObj.p)
                 break;
             case "add_address":
                 let newadd = createnewaddress();
@@ -158,7 +159,8 @@ const admin_api = (message, sig) => {
                 res = encnewadd;
                 break;
             case "update_require_related":
-                res = updaterequirerelated(relatedpathvariables, messageObj.v, messageObj.f);
+                if(messageObj.v[0] === '$')
+                    res = updaterequirerelated(relatedpathvariables, messageObj.v, messageObj.f);
                 break;
             case "change_address":
                 break;
@@ -175,16 +177,38 @@ const admin_api = (message, sig) => {
 //**    API for users
 //update_parameter_value {p: parameter, at: attribute, v: value} set new value for a parameter
 //send {t: to, b: balance} send balance from owner to reciever
+//get_parameter_history {p: parameter, at:attribute} returns history of change for a parameter giving address
+//update_parameters {} update states for related parameters
+//verify {} execute all trx check result validate hashes
 const private_api = (message, sig, address) => {
     if (verifysigniture(message, sig, address)) {
         var messageObj = JSON.parse(message);
         var res = false;
-        switch (messageObj.command) {
+        switch (messageObj.c) {
             case "update_parameter_value":
                 res = updateparametervalue(address, messageObj.p, messageObj.at, messageObj.v);
                 break;
             case "send":
                 res = send(address, messageObj.t, messageObj.b);
+                break;
+            case "get_parameter_history":
+                res = addresses[address][messageObj.p][messageObj.at];
+                break;
+            case "update_parameters":
+                let check = true;
+                while (check) {
+                    check = false;
+                    let funcs = relatedvariables(parameters);
+                    for (let k in funcs) {
+                        try {
+                            console.log(k, funcs[k]());
+                            check = true;
+                        } catch(err) {
+                            //console.log(err);
+                        }
+                    }
+                }
+                res = true;
                 break;
         }
         if (res) {
@@ -198,21 +222,36 @@ const private_api = (message, sig, address) => {
 
 };
 
+//** API for public
+//get_parameter {p: parameter, at: attribute} returns latest state of a parameter
+const public_api = (message) => {
+    var messageObj = JSON.parse(message);
+    var res = false;
+    switch (messageObj.c) {
+      case "get_parameter":
+          res = parameters[messageObj.p][messageObj.at];
+          break;
+    }
+    return res;
+};
+
+
 module.exports.admin_api = admin_api;
 module.exports.private_api = private_api;
+module.exports.public_api = public_api;
 
 // **************************************** __test__ ********************************************
+const secret = require('./secret.js');
 if (! (__test__))
     return 0;
-//verifysigniture 
-const privateKey = '-----BEGIN PRIVATE KEY-----MIIBVAIBADANBgkqhkiG9w0BAQEFAASCAT4wggE6AgEAAkEAp5Ep0cHsv4uETFgiw/KW6B4wSIonSPXkMGVckLSRb9Sg6JkpDBBl5t4rop41IsSF7aUOLHfpRc72LpMifmkd9QIDAQABAkBxHeR+Lgw07ejcZK7rWgsXHLH5dhG5Bg0JwpMvOEXpmCd1HrmMEIvAnb6DM9ZOY2lc7tsTSEKjivcMz2Ezsp8tAiEA0V3KPKhD/5AZhdzbK4V1UcXsIlApDmNxXU/IDdapsysCIQDM4/K1fqE9SeVo7wX2DI/heFUoDQLNvQ0EUiT5RHJjXwIgKyZcXwIC+bH2QKuTFDYuRss27p98xrViEOw3e/qpAP8CIAiTVdpA1ZDSIfb1YiN9PRxrw+ysNrzTt9LBeWixc7QzAiEAgPGBRrxmTPXcwerwyzDdnYJWp9URT/TcqYtW1YVkV8c=-----END PRIVATE KEY-----';
+//verifysigniture
 assert.equal(verifysigniture('message', 'sign'), false);
 
-const rsaNode = new NodeRSA(privateKey, 'pkcs8-private-pem');
+const rsaNode = new NodeRSA(secret.masterkey, 'pkcs8-private-pem');
 var message = '{value: {v:3.49873, time:123456}}';
 assert.equal(rsaNode.verify(message, rsaNode.sign(message, 'base64', 'utf8'), 'utf8', 'base64'), true);
 assert.equal(verifysigniture(message, rsaNode.sign(message, 'base64', 'utf8')), true);
-assert.equal(verifysigniture(message, rsaNode.sign(message, 'base64', 'utf8'), pemtokey(MasterKeyAddress)), true);
+assert.equal(verifysigniture(message, rsaNode.sign(message, 'base64', 'utf8'), secret.pemtokey(MasterKeyAddress)), true);
 
 //createnewaddress
 let pk = createnewaddress();
@@ -224,38 +263,18 @@ assert(!testNode.isPublic(true));
 //addparameter
 var _add = {};
 assert.equal(JSON.stringify(addresses), JSON.stringify(_add));
-assert.equal(addparameter(pemtokey(testNode.exportKey('pkcs8-public-pem')), 'dblVar'), true);
-_add[pemtokey(testNode.exportKey('pkcs8-public-pem'))] = {};
-_add[pemtokey(testNode.exportKey('pkcs8-public-pem'))]['dblVar'] = {};
+assert.equal(addparameter(secret.pemtokey(testNode.exportKey('pkcs8-public-pem')), 'dblVar'), true);
+_add[secret.pemtokey(testNode.exportKey('pkcs8-public-pem'))] = {};
+_add[secret.pemtokey(testNode.exportKey('pkcs8-public-pem'))]['dblVar'] = {};
 assert.equal(JSON.stringify(addresses), JSON.stringify(_add));
 assert.equal(addparameter('new address', 'dblVar'), false);
 
 //encrypt decrypt
 assert.equal(rsaNode.decrypt(rsaNode.encrypt('test', 'base64'), 'utf8'), 'test');
 
-//admin_api add_address
-message = JSON.stringify({ command: 'add_address' });
-var encpvkey = admin_api(message, rsaNode.sign(message, 'base64', 'utf8'));
-const testNode2 = new NodeRSA(rsaNode.decrypt(encpvkey, 'utf8'), 'pkcs8-private-pem');
-assert(testNode2.isPrivate());
-let publickey = pemtokey(testNode2.exportKey('pkcs8-public-pem'));
-//admin_api add_parameter
-message = JSON.stringify({ command: 'add_parameter', ad: publickey, p: 'density' });
-assert(admin_api(message, rsaNode.sign(message, 'base64', 'utf8')));
-//private_api update_parameter_value
-message = JSON.stringify({ command: 'update_parameter_value', p: 'density', at: '3M', v: {v: 134.87, t:12345} });
-assert(private_api(message, testNode2.sign(message, 'base64', 'utf8'), publickey));
-
-//private_api send
-message = JSON.stringify({ command: 'send', t: testNode.exportKey('pkcs8-public-pem'), b: 1 });
-let pKey = pemtokey(rsaNode.exportKey('pkcs8-public-pem'));
-assert(private_api(message, rsaNode.sign(message, 'base64', 'utf8'), pKey));
-
 //admin_api update_require_related
 let domain = { a: 2, b: 3, c: 1 };
 var relatedvalues = updaterequirerelated(relatedpathvariables, 'd', 'a*b+b^2');
-message = JSON.stringify({ command: 'update_require_related', v: 'd', f: 'a+b+c*a*b' });
-assert(admin_api(message, rsaNode.sign(message, 'base64', 'utf8')));
-assert(11 === relatedvariables(domain).d());
+assert(relatedvalues);
 
-return 0;
+return 1;
