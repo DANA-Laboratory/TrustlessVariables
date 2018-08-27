@@ -12,7 +12,7 @@
     <ProjectGuid>e1fd33fd-fa5e-4bc2-8c91-761b9f67c5cc</ProjectGuid>
     <ProjectHome>
     </ProjectHome>
-    <StartupFile>app.js</StartupFile>
+    <StartupFile>testapi.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>
@@ -33,7 +33,12 @@
     <Compile Include="errors.js" />
     <Compile Include="functional.js" />
     <Compile Include="main.js" />
+    <Compile Include="relatedvalues.js" />
+    <Compile Include="relatedvaluessim.js" />
+    <Compile Include="secret.js" />
     <Compile Include="test.js" />
+    <Compile Include="testapi.js" />
+    <Compile Include="util.js" />
     <Content Include="package.json" />
     <Content Include="README.md" />
   </ItemGroup>

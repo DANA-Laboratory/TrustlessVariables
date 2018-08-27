@@ -1,6 +1,6 @@
 'use strict';
 
-const __test__ = true; //debug use only
+const __test__ = false; //debug use only
 //***   Standard libraries
 const assert = require('assert');
 const crypto = require('crypto');
@@ -13,7 +13,7 @@ const NodeRSA = require('node-rsa');
 const MasterKeyAddress = '-----BEGIN PUBLIC KEY-----MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAKeRKdHB7L+LhExYIsPylugeMEiKJ0j15DBlXJC0kW/UoOiZKQwQZebeK6KeNSLEhe2lDix36UXO9i6TIn5pHfUCAwEAAQ==-----END PUBLIC KEY-----'
 const MasterNode = new NodeRSA(MasterKeyAddress, 'pkcs8-public-pem');
 module.exports.MasterNode = MasterNode;
-
+const isadmin = (address) => { return address === pemtokey(MasterKeyAddress) }; 
 //***   Simple Either implementation
 const either = require('./functional.js');
 
@@ -49,20 +49,10 @@ parameters[pemtokey(MasterKeyAddress)] = 100e6; // Initial balance for admin
 
 //***   Verify a signiture
 //      Utility
-const verifysigniturebase = (message/*utf8*/, sig /*'utf8'*/, address /*pkcs8-public-pem*/) => {
+const verifysigniture = (message/*utf8*/, sig /*'utf8'*/, address /*pkcs8-public-pem*/) => {
     let rsaNode = new NodeRSA(address, 'pkcs8-public-pem');
     let res = rsaNode.verify(message, sig, 'utf8', 'base64');
     return res;
-};
-module.exports.verifysigniturebase = verifysigniturebase;
-
-//***   Verify a signiture empty address should be signed by admin
-//      Utility
-const verifysigniture = (message, sig, address) => {
-    if (address)
-        return verifysigniturebase(message, sig, address);
-    else
-        return verifysigniturebase(message, sig, MasterKeyAddress);
 };
 module.exports.verifysigniture = verifysigniture;
 
@@ -93,9 +83,12 @@ const sendparameters = () => { return false };
 
 //***   Create a 512bit-length address return private key
 //      Admin API
-const createnewaddress = () => {
-    let key = new NodeRSA({ b: 512 });
-    return key.exportKey('pkcs8-private-pem');
+const createnewaddress = (message) => {
+    if (isadmin(message.ad)) {
+        let key = new NodeRSA({ b: 512 });
+        return MasterNode.encrypt(key.exportKey('pkcs8-private-pem'), 'base64');
+    }
+    return false;
 };
 module.exports.createnewaddress = createnewaddress;
 

@@ -3,13 +3,11 @@
 const u = require ('./util.js');
                                 //******      Export    ******//
 //**    API for admin
-//add_parameter {ad:address, p:parameter} add new parameter to address the address will become owner
-//add_address {} create new address encrypt and send
+//
 //update_require_related {v:variablename, f:functionstr} add new related variable with custom function
 //change_address
-const admin_api = (message, sig) => {
+const admin_api = (messageObj, sig) => {
     if (u.verifysigniture(message, sig)) {
-        var messageObj = JSON.parse(message);
         var res = false;
         switch (messageObj.c) {
             case "add_parameter":
@@ -17,9 +15,6 @@ const admin_api = (message, sig) => {
                   res = u.addparameter(messageObj.ad, messageObj.p)
                 break;
             case "add_address":
-                let newadd = u.createnewaddress();
-                let encnewadd = u.MasterNode.encrypt(newadd, 'base64');
-                res = encnewadd;
                 break;
             case "update_require_related":
                 if(messageObj.v[0] === '$')
@@ -43,9 +38,8 @@ const admin_api = (message, sig) => {
 //get_parameter_history {p: parameter, at:attribute} returns history of change for a parameter giving address
 //update_parameters {} update states for related parameters
 //verify {} execute all trx check result validate hashes
-const private_api = (message, sig, address) => {
+const private_api = (messageObj, sig, address) => {
     if (u.verifysigniture(message, sig, address)) {
-        var messageObj = JSON.parse(message);
         var res = false;
         switch (messageObj.c) {
             case "update_parameter_value":
@@ -53,9 +47,6 @@ const private_api = (message, sig, address) => {
                 break;
             case "send":
                 res = u.send(address, messageObj.t, messageObj.b);
-                break;
-            case "get_parameter_history":
-                res = u.getparameterhistory(address, messageObj.p, messageObj.at);
                 break;
             case "update_parameters":
                 res = u.updateparameters();
@@ -74,17 +65,44 @@ const private_api = (message, sig, address) => {
 
 //** API for public
 //get_parameter {p: parameter, at: attribute} returns latest state of a parameter
-const public_api = (message) => {
-    var messageObj = JSON.parse(message);
+const public_api = (messageObj) => {
     var res = false;
     switch (messageObj.c) {
         case "get_parameter":
             res = u.getparameter(messageObj.p, messageObj.at);
             break;
+        case "get_parameter_history":
+            res = u.getparameterhistory(address, messageObj.p, messageObj.at);
+            break;
     }
     return res;
 };
+const messagePass = {
+    //add_address {} create new address encrypt and send
+    add_address: u.createnewaddress,
+    //add_parameter { ad: address, p: parameter } add new parameter to address the address will become owner
+    add_parameter: u.addparameter,
 
-module.exports.admin_api = admin_api;
-module.exports.private_api = private_api;
-module.exports.public_api = public_api;
+    get_parameter: public_api,
+    get_parameter_history: public_api,
+    update_parameter_value: private_api,
+    send: private_api,
+    update_parameters: private_api,
+    update_require_related: admin_api,
+    change_address: admin_api,
+};
+
+const api = (message) => {
+    var messageObj = JSON.parse(message);
+    if (messageObj.s) {
+        if (u.verifysigniture(messageObj.m, messageObj.s, messageObj.ad)) {
+            var messageObjIn = JSON.parse(messageObj.m);
+            messageObjIn.ad = messageObj.ad;
+            var res = messagePass[messageObj.c](messageObjIn);
+            if (res)
+                u.addtrx({ tr: messageObj, r: res });
+            return res;
+        };
+    }
+};
+module.exports.api = api;
